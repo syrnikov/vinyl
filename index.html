@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vinyl Cover Art Display</title>
+    <style>
+      body {
+        text-align: center;
+        font-family: Arial, sans-serif;
+      }
+      #cover-art {
+        width: 80%;
+        height: auto;
+        margin-top: 20px;
+      }
+      #upload-btn {
+        margin-top: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Now Playing Cover Art</h1>
+    <img id="cover-art" src="" alt="Cover Art" />
+    <br />
+    <input type="file" id="upload-btn" accept="image/*" />
+
+    <script>
+      // Check if there is a stored cover image in localStorage
+      const storedCover = localStorage.getItem("coverArt");
+      if (storedCover) {
+        document.getElementById("cover-art").src = storedCover;
+      }
+
+      // Handle image upload
+      document
+        .getElementById("upload-btn")
+        .addEventListener("change", function (event) {
+          const file = event.target.files[0];
+          if (file) {
+            const reader = new FileReader();
+            reader.onloadend = function () {
+              const base64Image = reader.result;
+              document.getElementById("cover-art").src = base64Image;
+              // Save the image in localStorage
+              localStorage.setItem("coverArt", base64Image);
+            };
+            reader.readAsDataURL(file);
+          }
+        });
+    </script>
+  </body>
+</html>
