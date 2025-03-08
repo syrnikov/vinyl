@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vinyl Cover Art Display</title>
+    <title>Vinyl Cover Art</title>
     <style>
       body {
         text-align: center;
@@ -11,43 +11,90 @@
       }
       #cover-art {
         width: 80%;
-        height: auto;
-        margin-top: 20px;
+        max-height: 80vh;
+        object-fit: contain;
       }
-      #upload-btn {
-        margin-top: 20px;
+      #connect-info {
+        margin: 10px;
       }
     </style>
   </head>
   <body>
-    <h1>Now Playing Cover Art</h1>
+    <h1>Vinyl Cover Art</h1>
     <img id="cover-art" src="" alt="Cover Art" />
     <br />
     <input type="file" id="upload-btn" accept="image/*" />
+    <button id="host-btn">Host Session</button>
+    <button id="join-btn">Join Session</button>
+    <p id="connect-info"></p>
 
     <script>
-      // Check if there is a stored cover image in localStorage
-      const storedCover = localStorage.getItem("coverArt");
-      if (storedCover) {
-        document.getElementById("cover-art").src = storedCover;
+      let peerConnection;
+      const coverArt = document.getElementById("cover-art");
+      const uploadBtn = document.getElementById("upload-btn");
+      const hostBtn = document.getElementById("host-btn");
+      const joinBtn = document.getElementById("join-btn");
+      const connectInfo = document.getElementById("connect-info");
+
+      // Peer-to-peer WebRTC setup
+      async function startHost() {
+        peerConnection = new RTCPeerConnection();
+        const dataChannel = peerConnection.createDataChannel("coverArtSync");
+        setupDataChannel(dataChannel);
+
+        peerConnection.onicecandidate = (event) => {
+          if (event.candidate === null) {
+            connectInfo.innerText =
+              "Share this with TV: " +
+              btoa(JSON.stringify(peerConnection.localDescription));
+          }
+        };
+
+        const offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
       }
 
-      // Handle image upload
-      document
-        .getElementById("upload-btn")
-        .addEventListener("change", function (event) {
+      async function joinSession() {
+        const userInput = prompt("Paste the connection string from laptop:");
+        if (!userInput) return;
+        peerConnection = new RTCPeerConnection();
+
+        peerConnection.ondatachannel = (event) => {
+          setupDataChannel(event.channel);
+        };
+
+        await peerConnection.setRemoteDescription(JSON.parse(atob(userInput)));
+        const answer = await peerConnection.createAnswer();
+        await peerConnection.setLocalDescription(answer);
+      }
+
+      function setupDataChannel(dataChannel) {
+        dataChannel.onmessage = (event) => {
+          coverArt.src = event.data;
+          localStorage.setItem("coverArt", event.data);
+        };
+
+        uploadBtn.addEventListener("change", (event) => {
           const file = event.target.files[0];
           if (file) {
             const reader = new FileReader();
-            reader.onloadend = function () {
-              const base64Image = reader.result;
-              document.getElementById("cover-art").src = base64Image;
-              // Save the image in localStorage
-              localStorage.setItem("coverArt", base64Image);
+            reader.onload = () => {
+              coverArt.src = reader.result;
+              localStorage.setItem("coverArt", reader.result);
+              dataChannel.send(reader.result); // Send update to peer
             };
             reader.readAsDataURL(file);
           }
         });
+      }
+
+      // Restore previous image from localStorage (for refresh persistence)
+      if (localStorage.getItem("coverArt")) {
+        coverArt.src = localStorage.getItem("coverArt");
+      }
+
+      hostBtn.addEventListener("click", startHost);
+      joinBtn.addEventListener("click", joinSession);
     </script>
   </body>
 </html>
